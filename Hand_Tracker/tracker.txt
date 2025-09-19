@@ -1,0 +1,1 @@
+this will be the folder the tracker goes into. My plan is to have 2 simple inputs. Open hand and closed hand, will then be interpreted by the game as some sort of control
