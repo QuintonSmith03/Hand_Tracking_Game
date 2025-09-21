@@ -1,7 +1,7 @@
 How to run hand tracker:
 
 
-in /Hand_Tracker/Type the following commands in the terminal
+in /Hand_Tracker, Type the following commands in the terminal
 
 source .venv/bin/activate
 
