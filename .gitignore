@@ -1,0 +1,20 @@
+# Python virtual environments
+.venv/
+
+# pip-tools cache
+pip-wheel-metadata/
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Logs
+*.log
+
+# IDE settings
+.vscode/
+.idea/
