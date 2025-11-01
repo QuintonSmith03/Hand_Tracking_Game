@@ -4,127 +4,161 @@ import sys
 
 # Initialize pygame
 pygame.init()
-WIDTH, HEIGHT = 600, 400
-win = pygame.display.set_mode((WIDTH, HEIGHT))
-pygame.display.set_caption("Collect the Stars!")
 
-# Colors
-SKY_BLUE = (135, 206, 235)
-WHITE = (255, 255, 255)
-YELLOW = (255, 255, 0)
-BLACK = (0, 0, 0)
-DARK_BLUE = (0, 102, 204)
-GRAY = (200, 200, 200)
+WIDTH, HEIGHT = 800, 600
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+pygame.display.set_caption("Random Color Sort - Fix")
 
-font = pygame.font.SysFont(None, 48)
-small_font = pygame.font.SysFont(None, 36)
+# Fonts
+FONT_BIG = pygame.font.SysFont(None, 72)
+FONT_MED = pygame.font.SysFont(None, 40)
+FONT_SMALL = pygame.font.SysFont(None, 28)
 
+# Helpers
+def random_color(min_val=30):
+    """Return a visually distinct random color (avoid too-dark)."""
+    return (random.randint(min_val, 255), random.randint(min_val, 255), random.randint(min_val, 255))
+
+# Bins (fixed positions)
+BIN_W, BIN_H = 160, 120
+BIN_Y = HEIGHT - 150
+BIN_XS = [90, 320, 550]
+
+def make_bins():
+    """Create three bins with random colors (duplicates allowed)."""
+    return [{"rect": pygame.Rect(x, BIN_Y, BIN_W, BIN_H), "color": random_color()} for x in BIN_XS]
+
+bins = make_bins()
+
+# Block settings
+BLOCK_SIZE = 64
+BLOCK_START = (WIDTH//2 - BLOCK_SIZE//2, 150)
+block_rect = pygame.Rect(*BLOCK_START, BLOCK_SIZE, BLOCK_SIZE)
+block_color = None
+dragging = False
+offset_x = offset_y = 0
+
+# Game state
+score = 0
+lives = 3
+game_state = "menu"  # "menu", "playing", "gameover"
 clock = pygame.time.Clock()
 
-# --- Helper function to draw text ---
-def draw_text(text, font, color, surface, x, y):
-    textobj = font.render(text, True, color)
-    textrect = textobj.get_rect(center=(x, y))
-    surface.blit(textobj, textrect)
+def spawn_block_from_bins():
+    """Choose the block color to match one of the current bin colors (so it's always placeable)."""
+    global block_rect, block_color
+    block_rect.topleft = BLOCK_START
+    # pick a bin, then use its current color for the block
+    chosen_bin = random.choice(bins)
+    block_color = chosen_bin["color"]
 
-# --- Button function ---
-def draw_button(surface, text, x, y, w, h, inactive_color, active_color):
-    mouse = pygame.mouse.get_pos()
-    click = pygame.mouse.get_pressed()
+def draw_menu():
+    screen.fill((30, 30, 30))
+    title = FONT_BIG.render("Color Sort", True, (255,255,255))
+    prompt = FONT_MED.render("Click to Start", True, (200,200,200))
+    screen.blit(title, (WIDTH//2 - title.get_width()//2, 150))
+    screen.blit(prompt, (WIDTH//2 - prompt.get_width()//2, 300))
 
-    # Detect hover
-    if x + w > mouse[0] > x and y + h > mouse[1] > y:
-        pygame.draw.rect(surface, active_color, (x, y, w, h))
-        if click[0] == 1:  # Left click
-            pygame.time.delay(200)
-            return True
-    else:
-        pygame.draw.rect(surface, inactive_color, (x, y, w, h))
+def draw_game():
+    screen.fill((25, 25, 30))
+    # Draw bins (fixed positions, dynamic colors)
+    for b in bins:
+        pygame.draw.rect(screen, b["color"], b["rect"], border_radius=10)
+        pygame.draw.rect(screen, (0,0,0), b["rect"], width=3, border_radius=10)  # outline
 
-    draw_text(text, small_font, BLACK, surface, x + w // 2, y + h // 2)
-    return False
+    # Draw block
+    pygame.draw.rect(screen, block_color, block_rect, border_radius=8)
+    pygame.draw.rect(screen, (0,0,0), block_rect, width=2, border_radius=8)
 
-# --- Game Loop Function ---
-def game_loop(mouse_control=False):
-    player_size = 30
-    player_x, player_y = WIDTH // 2, HEIGHT // 2
-    speed = 5
+    # HUD
+    score_surf = FONT_SMALL.render(f"Score: {score}", True, (255,255,255))
+    lives_surf = FONT_SMALL.render(f"Lives: {lives}", True, (255,255,255))
+    screen.blit(score_surf, (20, 20))
+    screen.blit(lives_surf, (WIDTH - lives_surf.get_width() - 20, 20))
 
-    item_size = 20
-    item_x = random.randint(0, WIDTH - item_size)
-    item_y = random.randint(0, HEIGHT - item_size)
-    score = 0
+def draw_gameover():
+    screen.fill((10, 10, 10))
+    over = FONT_BIG.render("Game Over", True, (220, 40, 40))
+    score_txt = FONT_MED.render(f"Final Score: {score}", True, (230,230,230))
+    retry = FONT_SMALL.render("Click to return to menu", True, (200,200,200))
+    screen.blit(over, (WIDTH//2 - over.get_width()//2, 150))
+    screen.blit(score_txt, (WIDTH//2 - score_txt.get_width()//2, 260))
+    screen.blit(retry, (WIDTH//2 - retry.get_width()//2, 350))
 
-    running = True
-    while running:
-        clock.tick(30)
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit()
-                sys.exit()
-            if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
-                running = False  # return to menu if ESC pressed
+# Initialize first block
+spawn_block_from_bins()
 
-        if mouse_control:
-            # Center the player on the mouse position
-            mx, my = pygame.mouse.get_pos()
-            player_x = mx - player_size // 2
-            player_y = my - player_size // 2
-        else:
-            keys = pygame.key.get_pressed()
-            if keys[pygame.K_w]: player_y -= speed
-            if keys[pygame.K_s]: player_y += speed
-            if keys[pygame.K_a]: player_x -= speed
-            if keys[pygame.K_d]: player_x += speed
-
-        # Keep player in bounds
-        player_x = max(0, min(WIDTH - player_size, player_x))
-        player_y = max(0, min(HEIGHT - player_size, player_y))
-
-        # Check collision
-        if (player_x < item_x + item_size and
-            player_x + player_size > item_x and
-            player_y < item_y + item_size and
-            player_y + player_size > item_y):
-            score += 1
-            item_x = random.randint(0, WIDTH - item_size)
-            item_y = random.randint(0, HEIGHT - item_size)
-
-        # Draw game
-        win.fill(SKY_BLUE)
-        pygame.draw.rect(win, BLACK, (player_x, player_y, player_size, player_size))
-        pygame.draw.rect(win, YELLOW, (item_x, item_y, item_size, item_size))
-        score_text = small_font.render(f"Score: {score}", True, WHITE)
-        win.blit(score_text, (10, 10))
-        pygame.display.update()
-
-# --- Main Menu ---
-def main_menu():
-    in_menu = True
-    while in_menu:
-        win.fill(SKY_BLUE)
-        draw_text("Collect the Stars!", font, BLACK, win, WIDTH // 2, HEIGHT // 4)
-
-        # Draw buttons
-        if draw_button(win, "Play (WASD)", WIDTH // 2 - 75, HEIGHT // 2 - 75, 150, 50, GRAY, DARK_BLUE):
-            in_menu = False
-            game_loop(mouse_control=False)
-
-        if draw_button(win, "Play (Mouse)", WIDTH // 2 - 75, HEIGHT // 2, 150, 50, GRAY, DARK_BLUE):
-            in_menu = False
-            game_loop(mouse_control=True)
-
-        if draw_button(win, "Quit", WIDTH // 2 - 75, HEIGHT // 2 + 75, 150, 50, GRAY, DARK_BLUE):
+# Main loop
+while True:
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
             pygame.quit()
             sys.exit()
 
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit()
-                sys.exit()
+        if game_state == "menu":
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                # start game
+                score = 0
+                lives = 3
+                bins = make_bins()
+                spawn_block_from_bins()
+                game_state = "playing"
 
-        pygame.display.update()
-        clock.tick(15)
+        elif game_state == "playing":
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                if block_rect.collidepoint(event.pos):
+                    dragging = True
+                    mx, my = event.pos
+                    offset_x = block_rect.x - mx
+                    offset_y = block_rect.y - my
 
-# --- Run the menu ---
-main_menu()
+            if event.type == pygame.MOUSEMOTION and dragging:
+                mx, my = event.pos
+                block_rect.x = mx + offset_x
+                block_rect.y = my + offset_y
+
+            if event.type == pygame.MOUSEBUTTONUP:
+                if dragging:
+                    dragging = False
+                    placed = False
+                    # Check collision with bins
+                    for b in bins:
+                        if block_rect.colliderect(b["rect"]):
+                            placed = True
+                            # compare colors directly (exact match because block color came from a bin)
+                            if block_color == b["color"]:
+                                # correct
+                                score += 1
+                                # change THAT bin's color to a brand new random color
+                                b["color"] = random_color()
+                                # spawn the next block using updated bins (ensures it's placeable)
+                                spawn_block_from_bins()
+                            else:
+                                # wrong
+                                lives -= 1
+                                # reset block position (keep same color so user can try again)
+                                block_rect.topleft = BLOCK_START
+
+                            break
+
+                    if not placed:
+                        # dropped outside bins -> reset to start
+                        block_rect.topleft = BLOCK_START
+
+                    if lives <= 0:
+                        game_state = "gameover"
+
+        elif game_state == "gameover":
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                game_state = "menu"
+
+    # Draw according to state
+    if game_state == "menu":
+        draw_menu()
+    elif game_state == "playing":
+        draw_game()
+    elif game_state == "gameover":
+        draw_gameover()
+
+    pygame.display.flip()
+    clock.tick(60)
