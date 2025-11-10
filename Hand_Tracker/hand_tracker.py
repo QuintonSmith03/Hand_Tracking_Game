@@ -1,5 +1,20 @@
 import cv2
 import mediapipe as mp
+import pyautogui
+
+
+#mouse input functoin
+
+def mouse_input(display_value):
+    if display_value == 0:
+        pyautogui.mouseDown()
+
+    if display_value == 1:
+        pyautogui.mouseUp()
+
+def mouse_position(wrist_point):
+    #hand to mouse tranlation need to be optimized 
+
 
 
 def hand_open_state(hand_landmarks):
@@ -16,16 +31,18 @@ def hand_open_state(hand_landmarks):
 
     return 1 if extended_fingers >= 3 else 0
 
-mp_drawing = mp.solutions.drawing_utils
 mp_hands = mp.solutions.hands
 
 # Open default webcam for hand tracking
 capture = cv2.VideoCapture(0)
 
-if not capture.isOpened():
-    raise RuntimeError("Could not open webcam. Ensure a camera is connected and accessible.")
-
 prev_input = None
+
+#define middle of the screen and move mouse to it
+
+screen_w, screen_h = pyautogui.size()
+start_pos = screen_w//2, screen_h//2
+pyautogui.moveTo(*start_pos)
 
 with mp_hands.Hands(min_detection_confidence=0.8, min_tracking_confidence=0.5) as hands:
     while capture.isOpened():
@@ -44,17 +61,7 @@ with mp_hands.Hands(min_detection_confidence=0.8, min_tracking_confidence=0.5) a
         if detected_image.multi_hand_landmarks:
             for hand_lms in detected_image.multi_hand_landmarks:
                 current_inputs.append(hand_open_state(hand_lms))
-                mp_drawing.draw_landmarks(
-                    image,
-                    hand_lms,
-                    mp_hands.HAND_CONNECTIONS,
-                    landmark_drawing_spec=mp.solutions.drawing_utils.DrawingSpec(
-                        color=(255, 0, 255), thickness=4, circle_radius=2
-                    ),
-                    connection_drawing_spec=mp.solutions.drawing_utils.DrawingSpec(
-                        color=(20, 180, 90), thickness=2, circle_radius=2
-                    ),
-                )
+                mouse_position(hand_lms.landmark[0])
 
         display_value = current_inputs[0] if current_inputs else None
         if display_value is not None:
@@ -71,7 +78,9 @@ with mp_hands.Hands(min_detection_confidence=0.8, min_tracking_confidence=0.5) a
 
         if display_value is not None and display_value != prev_input:
             print(f"Detected input: {display_value}")
+            mouse_input(display_value)
             prev_input = display_value
+
         elif display_value is None:
             prev_input = None
 
