@@ -1,0 +1,10 @@
+to run initalize both shell files,
+
+chmod +x mouse_game.sh
+chmod +x hand_game.sh
+
+then to run both files
+./mouse_game.sh
+./hand_game.sh
+
+
